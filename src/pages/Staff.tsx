@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,54 +7,66 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { staff as initialStaff, offices, transactions, getOfficeName } from "@/data/mockData";
-import { Staff as StaffType } from "@/types";
+import { useStaff, useOffices, useTransactions, useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/hooks/use-data";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StaffPage() {
-  const [staffList, setStaffList] = useState<StaffType[]>(initialStaff);
+  const { data: staffList, isLoading } = useStaff();
+  const { data: offices } = useOffices();
+  const { data: transactions } = useTransactions();
+  const createStaff = useCreateStaff();
+  const updateStaff = useUpdateStaff();
+  const deleteStaff = useDeleteStaff();
+
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<StaffType | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", email: "", officeId: "", role: "Staff" as "Manager" | "Staff" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", phone: "", email: "", office_id: "", role: "Staff" });
 
   const openAdd = () => {
-    setEditing(null);
-    setForm({ name: "", phone: "", email: "", officeId: offices[0]?.id ?? "", role: "Staff" });
+    setEditingId(null);
+    setForm({ name: "", phone: "", email: "", office_id: offices?.[0]?.id ?? "", role: "Staff" });
     setDialogOpen(true);
   };
 
-  const openEdit = (s: StaffType) => {
-    setEditing(s);
-    setForm({ name: s.name, phone: s.phone, email: s.email, officeId: s.officeId, role: s.role });
+  const openEdit = (s: any) => {
+    setEditingId(s.id);
+    setForm({ name: s.name, phone: s.phone ?? "", email: s.email ?? "", office_id: s.office_id, role: s.role });
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!form.name || !form.officeId) {
+  const handleSave = async () => {
+    if (!form.name || !form.office_id) {
       toast({ title: "Please fill required fields", variant: "destructive" });
       return;
     }
-    if (editing) {
-      setStaffList(prev => prev.map(s => s.id === editing.id ? { ...s, ...form } : s));
-      toast({ title: "Staff updated" });
-    } else {
-      const newStaff: StaffType = {
-        id: `stf-${Date.now()}`,
-        ...form,
-        status: "active",
-        createdAt: new Date().toISOString().split("T")[0],
-      };
-      setStaffList(prev => [...prev, newStaff]);
-      toast({ title: "Staff added" });
+    try {
+      if (editingId) {
+        await updateStaff.mutateAsync({ id: editingId, ...form });
+        toast({ title: "Staff updated" });
+      } else {
+        await createStaff.mutateAsync(form);
+        toast({ title: "Staff added" });
+      }
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
     }
-    setDialogOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    setStaffList(prev => prev.filter(s => s.id !== id));
-    toast({ title: "Staff removed" });
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteStaff.mutateAsync(id);
+      toast({ title: "Staff removed" });
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
+    }
   };
+
+  const getOfficeName = (officeId: string) => offices?.find(o => o.id === officeId)?.name ?? "Unknown";
+
+  if (isLoading) return <Skeleton className="h-96 w-full" />;
 
   return (
     <div className="space-y-6">
@@ -83,12 +95,12 @@ export default function StaffPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {staffList.map(s => {
-                const txCount = transactions.filter(t => t.staffId === s.id).length;
+              {staffList?.map(s => {
+                const txCount = transactions?.filter(t => t.staff_id === s.id).length ?? 0;
                 return (
                   <TableRow key={s.id}>
                     <TableCell className="font-medium">{s.name}</TableCell>
-                    <TableCell>{getOfficeName(s.officeId)}</TableCell>
+                    <TableCell>{getOfficeName(s.office_id)}</TableCell>
                     <TableCell>
                       <Badge variant={s.role === "Manager" ? "default" : "secondary"} className={s.role === "Manager" ? "bg-primary" : ""}>
                         {s.role}
@@ -122,7 +134,7 @@ export default function StaffPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit Staff" : "Add Staff"}</DialogTitle>
+            <DialogTitle>{editingId ? "Edit Staff" : "Add Staff"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -142,16 +154,16 @@ export default function StaffPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Office</Label>
-                <Select value={form.officeId} onValueChange={v => setForm(f => ({ ...f, officeId: v }))}>
+                <Select value={form.office_id} onValueChange={v => setForm(f => ({ ...f, office_id: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {offices.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                    {offices?.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>Role</Label>
-                <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v as "Manager" | "Staff" }))}>
+                <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Manager">Manager</SelectItem>
@@ -163,7 +175,9 @@ export default function StaffPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave}>{editing ? "Save" : "Add Staff"}</Button>
+            <Button onClick={handleSave} disabled={createStaff.isPending || updateStaff.isPending}>
+              {editingId ? "Save" : "Add Staff"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

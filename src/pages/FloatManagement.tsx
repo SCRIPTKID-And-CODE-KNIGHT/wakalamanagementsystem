@@ -5,42 +5,54 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { offices, floatBalances as initialBalances, formatTZS, getOfficeName } from "@/data/mockData";
-import { useRole } from "@/contexts/RoleContext";
-import { Network } from "@/types";
+import { useOffices, useFloatBalances, useRecordFloat, formatTZS } from "@/hooks/use-data";
+import { useAuth } from "@/contexts/AuthContext";
 import { Wallet, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const networks: Network[] = ["M-Pesa", "Tigo Pesa", "Airtel Money"];
+const networks = ["M-Pesa", "Tigo Pesa", "Airtel Money"];
 
 export default function FloatManagement() {
-  const { role, currentOfficeId } = useRole();
-  const [balances, setBalances] = useState(initialBalances);
-  const [officeId, setOfficeId] = useState(role === "admin" ? offices[0]?.id ?? "" : currentOfficeId);
-  const [network, setNetwork] = useState<Network>("M-Pesa");
+  const { role, userOfficeId } = useAuth();
+  const { data: offices, isLoading: officesLoading } = useOffices();
+  const { data: balances, isLoading: balancesLoading } = useFloatBalances();
+  const recordFloat = useRecordFloat();
+
+  const isAdmin = role === "admin";
+  const [officeId, setOfficeId] = useState("");
+  const [network, setNetwork] = useState("M-Pesa");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<"deposit" | "withdrawal">("deposit");
 
-  const visibleOfficeIds = role === "admin" ? offices.map(o => o.id) : [currentOfficeId];
-  const visibleBalances = balances.filter(b => visibleOfficeIds.includes(b.officeId));
+  // Set default office when loaded
+  const effectiveOfficeId = isAdmin ? (officeId || offices?.[0]?.id || "") : (userOfficeId || "");
 
-  const handleRecord = () => {
+  const visibleOfficeIds = isAdmin ? (offices?.map(o => o.id) ?? []) : (userOfficeId ? [userOfficeId] : []);
+  const visibleBalances = balances?.filter(b => visibleOfficeIds.includes(b.office_id)) ?? [];
+  const totalFloat = visibleBalances.reduce((s, b) => s + Number(b.balance), 0);
+
+  const handleRecord = async () => {
     const num = parseFloat(amount);
     if (!num || num <= 0) {
       toast({ title: "Enter a valid amount", variant: "destructive" });
       return;
     }
-    setBalances(prev => prev.map(b => {
-      if (b.officeId === officeId && b.network === network) {
-        return { ...b, balance: type === "deposit" ? b.balance + num : Math.max(0, b.balance - num) };
-      }
-      return b;
-    }));
-    toast({ title: `Float ${type} of ${formatTZS(num)} recorded` });
-    setAmount("");
+    try {
+      await recordFloat.mutateAsync({
+        office_id: effectiveOfficeId,
+        network,
+        type,
+        amount: num,
+      });
+      toast({ title: `Float ${type} of ${formatTZS(num)} recorded` });
+      setAmount("");
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
+    }
   };
 
-  const totalFloat = visibleBalances.reduce((s, b) => s + b.balance, 0);
+  if (officesLoading || balancesLoading) return <Skeleton className="h-96 w-full" />;
 
   return (
     <div className="space-y-6">
@@ -50,26 +62,25 @@ export default function FloatManagement() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Record Form */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Record Float</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {role === "admin" && (
+            {isAdmin && (
               <div className="space-y-2">
                 <Label>Office</Label>
-                <Select value={officeId} onValueChange={setOfficeId}>
+                <Select value={effectiveOfficeId} onValueChange={setOfficeId}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {offices.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                    {offices?.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             )}
             <div className="space-y-2">
               <Label>Network</Label>
-              <Select value={network} onValueChange={v => setNetwork(v as Network)}>
+              <Select value={network} onValueChange={setNetwork}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {networks.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
@@ -91,13 +102,12 @@ export default function FloatManagement() {
               <Label>Amount (TZS)</Label>
               <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="e.g. 500000" />
             </div>
-            <Button className="w-full" onClick={handleRecord}>
+            <Button className="w-full" onClick={handleRecord} disabled={recordFloat.isPending}>
               <Wallet className="h-4 w-4 mr-2" /> Record
             </Button>
           </CardContent>
         </Card>
 
-        {/* Balances */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -119,8 +129,8 @@ export default function FloatManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {offices.filter(o => visibleOfficeIds.includes(o.id)).map(office => {
-                  const fb = (n: string) => balances.find(b => b.officeId === office.id && b.network === n)?.balance ?? 0;
+                {offices?.filter(o => visibleOfficeIds.includes(o.id)).map(office => {
+                  const fb = (n: string) => Number(balances?.find(b => b.office_id === office.id && b.network === n)?.balance ?? 0);
                   const total = fb("M-Pesa") + fb("Tigo Pesa") + fb("Airtel Money");
                   return (
                     <TableRow key={office.id}>

@@ -7,16 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { transactions as initialTx, offices, staff, formatTZS, getOfficeName, getStaffName } from "@/data/mockData";
-import { useRole } from "@/contexts/RoleContext";
-import { Transaction, TransactionType, Network } from "@/types";
+import { useTransactions, useOffices, useStaff, useCreateTransaction, formatTZS } from "@/hooks/use-data";
+import { useAuth } from "@/contexts/AuthContext";
 import { Plus, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { format, parseISO } from "date-fns";
 
-const txTypes: TransactionType[] = ["Cash In", "Cash Out", "Bill Payment", "Airtime"];
-const networks: Network[] = ["M-Pesa", "Tigo Pesa", "Airtel Money"];
+const txTypes = ["Cash In", "Cash Out", "Bill Payment", "Airtime"];
+const networksList = ["M-Pesa", "Tigo Pesa", "Airtel Money"];
 
-const typeColors: Record<TransactionType, string> = {
+const typeColors: Record<string, string> = {
   "Cash In": "bg-secondary text-secondary-foreground",
   "Cash Out": "bg-primary text-primary-foreground",
   "Bill Payment": "bg-accent text-accent-foreground",
@@ -24,57 +25,65 @@ const typeColors: Record<TransactionType, string> = {
 };
 
 export default function Transactions() {
-  const { role, currentOfficeId } = useRole();
-  const [txList, setTxList] = useState<Transaction[]>(initialTx);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [receiptTx, setReceiptTx] = useState<Transaction | null>(null);
+  const { role, userOfficeId } = useAuth();
+  const { data: txList, isLoading } = useTransactions();
+  const { data: offices } = useOffices();
+  const { data: staffList } = useStaff();
+  const createTx = useCreateTransaction();
 
-  // Filters
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [receiptTx, setReceiptTx] = useState<any | null>(null);
   const [filterOffice, setFilterOffice] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [filterNetwork, setFilterNetwork] = useState("all");
 
-  // Form
+  const isAdmin = role === "admin";
+  const defaultOfficeId = isAdmin ? (offices?.[0]?.id ?? "") : (userOfficeId ?? "");
   const [form, setForm] = useState({
-    officeId: role === "admin" ? offices[0]?.id ?? "" : currentOfficeId,
-    staffId: staff[0]?.id ?? "",
-    type: "Cash In" as TransactionType,
-    network: "M-Pesa" as Network,
+    office_id: defaultOfficeId,
+    staff_id: "",
+    type: "Cash In",
+    network: "M-Pesa",
     amount: "",
-    customerPhone: "",
+    customer_phone: "",
   });
 
-  const visibleOfficeIds = role === "admin" ? offices.map(o => o.id) : [currentOfficeId];
+  const visibleOfficeIds = isAdmin ? (offices?.map(o => o.id) ?? []) : (userOfficeId ? [userOfficeId] : []);
 
-  let filtered = txList.filter(t => visibleOfficeIds.includes(t.officeId));
-  if (filterOffice !== "all") filtered = filtered.filter(t => t.officeId === filterOffice);
+  let filtered = txList?.filter(t => visibleOfficeIds.includes(t.office_id)) ?? [];
+  if (filterOffice !== "all") filtered = filtered.filter(t => t.office_id === filterOffice);
   if (filterType !== "all") filtered = filtered.filter(t => t.type === filterType);
   if (filterNetwork !== "all") filtered = filtered.filter(t => t.network === filterNetwork);
 
-  const handleRecord = () => {
+  const getOfficeName = (id: string) => offices?.find(o => o.id === id)?.name ?? "Unknown";
+  const getStaffName = (id: string | null) => staffList?.find(s => s.id === id)?.name ?? "—";
+  const officeStaff = staffList?.filter(s => s.office_id === form.office_id) ?? [];
+
+  const handleRecord = async () => {
     const amt = parseFloat(form.amount);
     if (!amt || amt <= 0) {
       toast({ title: "Enter a valid amount", variant: "destructive" });
       return;
     }
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      officeId: form.officeId,
-      staffId: form.staffId,
-      type: form.type,
-      network: form.network,
-      amount: amt,
-      commission: Math.round(amt * 0.005),
-      date: new Date().toISOString().split("T")[0],
-      customerPhone: form.customerPhone || undefined,
-    };
-    setTxList(prev => [newTx, ...prev]);
-    toast({ title: "Transaction recorded" });
-    setDialogOpen(false);
-    setForm(f => ({ ...f, amount: "", customerPhone: "" }));
+    try {
+      await createTx.mutateAsync({
+        office_id: form.office_id || defaultOfficeId,
+        staff_id: form.staff_id || undefined,
+        type: form.type,
+        network: form.network,
+        amount: amt,
+        commission: Math.round(amt * 0.005),
+        customer_phone: form.customer_phone || undefined,
+      });
+      toast({ title: "Transaction recorded" });
+      setDialogOpen(false);
+      setForm(f => ({ ...f, amount: "", customer_phone: "" }));
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
+    }
   };
 
-  const officeStaff = staff.filter(s => s.officeId === form.officeId);
+  if (isLoading) return <Skeleton className="h-96 w-full" />;
 
   return (
     <div className="space-y-6">
@@ -83,21 +92,23 @@ export default function Transactions() {
           <h1 className="text-2xl font-bold text-foreground">Transactions</h1>
           <p className="text-sm text-muted-foreground mt-1">Record and view transaction history</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)} className="gap-2">
+        <Button onClick={() => {
+          setForm(f => ({ ...f, office_id: defaultOfficeId, staff_id: officeStaff[0]?.id ?? "" }));
+          setDialogOpen(true);
+        }} className="gap-2">
           <Plus className="h-4 w-4" /> New Transaction
         </Button>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-3">
-            {role === "admin" && (
+            {isAdmin && (
               <Select value={filterOffice} onValueChange={setFilterOffice}>
                 <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Offices" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Offices</SelectItem>
-                  {offices.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                  {offices?.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}
@@ -112,14 +123,13 @@ export default function Transactions() {
               <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Networks" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Networks</SelectItem>
-                {networks.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                {networksList.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* Table */}
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -138,15 +148,15 @@ export default function Transactions() {
             <TableBody>
               {filtered.map(tx => (
                 <TableRow key={tx.id}>
-                  <TableCell className="text-sm">{tx.date}</TableCell>
+                  <TableCell className="text-sm">{format(parseISO(tx.created_at), "MMM d, yyyy")}</TableCell>
                   <TableCell>
-                    <Badge className={typeColors[tx.type]}>{tx.type}</Badge>
+                    <Badge className={typeColors[tx.type] ?? ""}>{tx.type}</Badge>
                   </TableCell>
                   <TableCell className="text-sm">{tx.network}</TableCell>
-                  <TableCell className="text-sm">{getOfficeName(tx.officeId)}</TableCell>
-                  <TableCell className="text-sm">{getStaffName(tx.staffId)}</TableCell>
-                  <TableCell className="text-right font-medium">{formatTZS(tx.amount)}</TableCell>
-                  <TableCell className="text-right text-sm text-muted-foreground">{formatTZS(tx.commission)}</TableCell>
+                  <TableCell className="text-sm">{getOfficeName(tx.office_id)}</TableCell>
+                  <TableCell className="text-sm">{getStaffName(tx.staff_id)}</TableCell>
+                  <TableCell className="text-right font-medium">{formatTZS(Number(tx.amount))}</TableCell>
+                  <TableCell className="text-right text-sm text-muted-foreground">{formatTZS(Number(tx.commission))}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setReceiptTx(tx)}>
                       <FileText className="h-3.5 w-3.5" />
@@ -154,6 +164,11 @@ export default function Transactions() {
                   </TableCell>
                 </TableRow>
               ))}
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">No transactions found</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -167,20 +182,20 @@ export default function Transactions() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              {role === "admin" && (
+              {isAdmin && (
                 <div className="space-y-2">
                   <Label>Office</Label>
-                  <Select value={form.officeId} onValueChange={v => setForm(f => ({ ...f, officeId: v, staffId: staff.find(s => s.officeId === v)?.id ?? "" }))}>
+                  <Select value={form.office_id} onValueChange={v => setForm(f => ({ ...f, office_id: v, staff_id: staffList?.find(s => s.office_id === v)?.id ?? "" }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {offices.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                      {offices?.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               )}
               <div className="space-y-2">
                 <Label>Staff</Label>
-                <Select value={form.staffId} onValueChange={v => setForm(f => ({ ...f, staffId: v }))}>
+                <Select value={form.staff_id} onValueChange={v => setForm(f => ({ ...f, staff_id: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {officeStaff.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
@@ -191,7 +206,7 @@ export default function Transactions() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Type</Label>
-                <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v as TransactionType }))}>
+                <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {txTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -200,10 +215,10 @@ export default function Transactions() {
               </div>
               <div className="space-y-2">
                 <Label>Network</Label>
-                <Select value={form.network} onValueChange={v => setForm(f => ({ ...f, network: v as Network }))}>
+                <Select value={form.network} onValueChange={v => setForm(f => ({ ...f, network: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {networks.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                    {networksList.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -215,13 +230,13 @@ export default function Transactions() {
               </div>
               <div className="space-y-2">
                 <Label>Customer Phone</Label>
-                <Input value={form.customerPhone} onChange={e => setForm(f => ({ ...f, customerPhone: e.target.value }))} placeholder="+255..." />
+                <Input value={form.customer_phone} onChange={e => setForm(f => ({ ...f, customer_phone: e.target.value }))} placeholder="+255..." />
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleRecord}>Record Transaction</Button>
+            <Button onClick={handleRecord} disabled={createTx.isPending}>Record Transaction</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -239,16 +254,16 @@ export default function Transactions() {
                 <p className="text-muted-foreground text-xs">Wakala Business Management</p>
               </div>
               <div className="space-y-2">
-                <div className="flex justify-between"><span className="text-muted-foreground">ID:</span><span className="font-mono">{receiptTx.id}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Date:</span><span>{receiptTx.date}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">ID:</span><span className="font-mono text-xs">{receiptTx.id}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Date:</span><span>{format(parseISO(receiptTx.created_at), "MMM d, yyyy HH:mm")}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Type:</span><span>{receiptTx.type}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Network:</span><span>{receiptTx.network}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Amount:</span><span className="font-semibold">{formatTZS(receiptTx.amount)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Commission:</span><span>{formatTZS(receiptTx.commission)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Office:</span><span>{getOfficeName(receiptTx.officeId)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Staff:</span><span>{getStaffName(receiptTx.staffId)}</span></div>
-                {receiptTx.customerPhone && (
-                  <div className="flex justify-between"><span className="text-muted-foreground">Customer:</span><span>{receiptTx.customerPhone}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Amount:</span><span className="font-semibold">{formatTZS(Number(receiptTx.amount))}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Commission:</span><span>{formatTZS(Number(receiptTx.commission))}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Office:</span><span>{getOfficeName(receiptTx.office_id)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Staff:</span><span>{getStaffName(receiptTx.staff_id)}</span></div>
+                {receiptTx.customer_phone && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Customer:</span><span>{receiptTx.customer_phone}</span></div>
                 )}
               </div>
             </div>

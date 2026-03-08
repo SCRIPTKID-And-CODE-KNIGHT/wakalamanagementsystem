@@ -1,61 +1,78 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { offices as initialOffices, floatBalances, staff, formatTZS } from "@/data/mockData";
-import { Office } from "@/types";
+import { useOffices, useStaff, useFloatBalances, useCreateOffice, useUpdateOffice, useDeleteOffice, formatTZS } from "@/hooks/use-data";
 import { Plus, Pencil, Trash2, Building2, MapPin, Users } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Offices() {
-  const [officeList, setOfficeList] = useState<Office[]>(initialOffices);
+  const { data: offices, isLoading } = useOffices();
+  const { data: staffList } = useStaff();
+  const { data: floatBalances } = useFloatBalances();
+  const createOffice = useCreateOffice();
+  const updateOffice = useUpdateOffice();
+  const deleteOffice = useDeleteOffice();
+
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Office | null>(null);
-  const [form, setForm] = useState({ name: "", location: "", status: "active" as "active" | "inactive" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", location: "", status: "active" });
 
   const openAdd = () => {
-    setEditing(null);
+    setEditingId(null);
     setForm({ name: "", location: "", status: "active" });
     setDialogOpen(true);
   };
 
-  const openEdit = (office: Office) => {
-    setEditing(office);
+  const openEdit = (office: any) => {
+    setEditingId(office.id);
     setForm({ name: office.name, location: office.location, status: office.status });
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name || !form.location) {
       toast({ title: "Please fill all fields", variant: "destructive" });
       return;
     }
-    if (editing) {
-      setOfficeList(prev => prev.map(o => o.id === editing.id ? { ...o, ...form } : o));
-      toast({ title: "Office updated" });
-    } else {
-      const newOffice: Office = {
-        id: `off-${Date.now()}`,
-        name: form.name,
-        location: form.location,
-        status: form.status,
-        createdAt: new Date().toISOString().split("T")[0],
-      };
-      setOfficeList(prev => [...prev, newOffice]);
-      toast({ title: "Office created" });
+    try {
+      if (editingId) {
+        await updateOffice.mutateAsync({ id: editingId, ...form });
+        toast({ title: "Office updated" });
+      } else {
+        await createOffice.mutateAsync(form);
+        toast({ title: "Office created" });
+      }
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
     }
-    setDialogOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    setOfficeList(prev => prev.filter(o => o.id !== id));
-    toast({ title: "Office deleted" });
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteOffice.mutateAsync(id);
+      toast({ title: "Office deleted" });
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[1,2,3].map(i => <Skeleton key={i} className="h-48" />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -70,9 +87,9 @@ export default function Offices() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {officeList.map(office => {
-          const officeFloat = floatBalances.filter(f => f.officeId === office.id).reduce((s, f) => s + f.balance, 0);
-          const officeStaff = staff.filter(s => s.officeId === office.id).length;
+        {offices?.map(office => {
+          const officeFloat = floatBalances?.filter(f => f.office_id === office.id).reduce((s, f) => s + Number(f.balance), 0) ?? 0;
+          const officeStaff = staffList?.filter(s => s.office_id === office.id).length ?? 0;
           return (
             <Card key={office.id} className="relative group">
               <CardHeader className="pb-3">
@@ -124,7 +141,7 @@ export default function Offices() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit Office" : "Add Office"}</DialogTitle>
+            <DialogTitle>{editingId ? "Edit Office" : "Add Office"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -137,7 +154,7 @@ export default function Offices() {
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v) => setForm(f => ({ ...f, status: v as "active" | "inactive" }))}>
+              <Select value={form.status} onValueChange={(v) => setForm(f => ({ ...f, status: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
@@ -148,7 +165,9 @@ export default function Offices() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave}>{editing ? "Save Changes" : "Add Office"}</Button>
+            <Button onClick={handleSave} disabled={createOffice.isPending || updateOffice.isPending}>
+              {editingId ? "Save Changes" : "Add Office"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

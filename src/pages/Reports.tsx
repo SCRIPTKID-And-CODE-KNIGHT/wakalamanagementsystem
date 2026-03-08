@@ -2,50 +2,55 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { transactions, offices, formatTZS, getOfficeName } from "@/data/mockData";
-import { useRole } from "@/contexts/RoleContext";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { useTransactions, useOffices, formatTZS } from "@/hooks/use-data";
+import { useAuth } from "@/contexts/AuthContext";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, FileBarChart } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { format, parseISO } from "date-fns";
 
 const COLORS = ["hsl(217,91%,50%)", "hsl(160,84%,39%)", "hsl(32,95%,52%)", "hsl(270,70%,55%)"];
 
 export default function Reports() {
-  const { role, currentOfficeId } = useRole();
-  const [period, setPeriod] = useState("daily");
+  const { role, userOfficeId } = useAuth();
+  const { data: transactions, isLoading: txLoading } = useTransactions();
+  const { data: offices, isLoading: officesLoading } = useOffices();
   const [filterOffice, setFilterOffice] = useState("all");
 
-  const visibleOfficeIds = role === "admin" ? offices.map(o => o.id) : [currentOfficeId];
-  let filtered = transactions.filter(t => visibleOfficeIds.includes(t.officeId));
-  if (filterOffice !== "all") filtered = filtered.filter(t => t.officeId === filterOffice);
+  const isAdmin = role === "admin";
+  const visibleOfficeIds = isAdmin ? (offices?.map(o => o.id) ?? []) : (userOfficeId ? [userOfficeId] : []);
+  
+  let filtered = transactions?.filter(t => visibleOfficeIds.includes(t.office_id)) ?? [];
+  if (filterOffice !== "all") filtered = filtered.filter(t => t.office_id === filterOffice);
 
-  const totalAmount = filtered.reduce((s, t) => s + t.amount, 0);
-  const totalCommission = filtered.reduce((s, t) => s + t.commission, 0);
+  const totalAmount = filtered.reduce((s, t) => s + Number(t.amount), 0);
+  const totalCommission = filtered.reduce((s, t) => s + Number(t.commission), 0);
 
-  // Per-office summary
-  const officeSummary = offices.filter(o => visibleOfficeIds.includes(o.id)).map(office => {
-    const officeTx = filtered.filter(t => t.officeId === office.id);
+  const officeSummary = (offices?.filter(o => visibleOfficeIds.includes(o.id)) ?? []).map(office => {
+    const officeTx = filtered.filter(t => t.office_id === office.id);
     return {
       name: office.name,
       transactions: officeTx.length,
-      volume: officeTx.reduce((s, t) => s + t.amount, 0),
-      commission: officeTx.reduce((s, t) => s + t.commission, 0),
+      volume: officeTx.reduce((s, t) => s + Number(t.amount), 0),
+      commission: officeTx.reduce((s, t) => s + Number(t.commission), 0),
     };
   });
 
-  // Tx type breakdown
   const typeBreakdown = ["Cash In", "Cash Out", "Bill Payment", "Airtime"].map(type => ({
     name: type,
     value: filtered.filter(t => t.type === type).length,
   }));
 
-  // Daily volume chart
   const dailyData: Record<string, { date: string; amount: number; count: number }> = {};
   filtered.forEach(t => {
-    if (!dailyData[t.date]) dailyData[t.date] = { date: t.date, amount: 0, count: 0 };
-    dailyData[t.date].amount += t.amount;
-    dailyData[t.date].count += 1;
+    const day = format(parseISO(t.created_at), "MMM d");
+    if (!dailyData[day]) dailyData[day] = { date: day, amount: 0, count: 0 };
+    dailyData[day].amount += Number(t.amount);
+    dailyData[day].count += 1;
   });
-  const dailyChart = Object.values(dailyData).sort((a, b) => a.date.localeCompare(b.date));
+  const dailyChart = Object.values(dailyData);
+
+  if (txLoading || officesLoading) return <Skeleton className="h-96 w-full" />;
 
   return (
     <div className="space-y-6">
@@ -54,20 +59,17 @@ export default function Reports() {
           <h1 className="text-2xl font-bold text-foreground">Reports</h1>
           <p className="text-sm text-muted-foreground mt-1">Transaction & commission reports</p>
         </div>
-        <div className="flex gap-3">
-          {role === "admin" && (
-            <Select value={filterOffice} onValueChange={setFilterOffice}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Offices" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Offices</SelectItem>
-                {offices.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
+        {isAdmin && (
+          <Select value={filterOffice} onValueChange={setFilterOffice}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Offices" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Offices</SelectItem>
+              {offices?.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="stat-card-blue border-0 text-primary-foreground">
           <CardContent className="p-5">
@@ -90,7 +92,6 @@ export default function Reports() {
         </Card>
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -136,8 +137,7 @@ export default function Reports() {
         </Card>
       </div>
 
-      {/* Office Summary Table */}
-      {role === "admin" && (
+      {isAdmin && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Commission by Office</CardTitle>

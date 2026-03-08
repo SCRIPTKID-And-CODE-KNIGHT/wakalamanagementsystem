@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+
+type NetworkType = "M-Pesa" | "Tigo Pesa" | "Airtel Money";
+type TransactionType = "Cash In" | "Cash Out" | "Bill Payment" | "Airtime";
+type StaffRoleType = "Manager" | "Staff";
+type AlertStatusType = "new" | "acknowledged";
 
 export function useOffices() {
   return useQuery({
@@ -74,7 +80,7 @@ export function useCreateOffice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (office: { name: string; location: string; status: string; gps_lat?: number; gps_lng?: number }) => {
-      const { data, error } = await supabase.from("offices").insert(office).select().single();
+      const { data, error } = await supabase.from("offices").insert([office]).select().single();
       if (error) throw error;
       return data;
     },
@@ -108,8 +114,8 @@ export function useDeleteOffice() {
 export function useCreateStaff() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (staff: { name: string; phone?: string; email?: string; office_id: string; role: string }) => {
-      const { data, error } = await supabase.from("staff").insert(staff).select().single();
+    mutationFn: async (staff: { name: string; phone?: string; email?: string; office_id: string; role: StaffRoleType }) => {
+      const { data, error } = await supabase.from("staff").insert([staff]).select().single();
       if (error) throw error;
       return data;
     },
@@ -120,7 +126,7 @@ export function useCreateStaff() {
 export function useUpdateStaff() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; name?: string; phone?: string; email?: string; office_id?: string; role?: string }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; name?: string; phone?: string; email?: string; office_id?: string; role?: StaffRoleType }) => {
       const { data, error } = await supabase.from("staff").update(updates).eq("id", id).select().single();
       if (error) throw error;
       return data;
@@ -143,8 +149,8 @@ export function useDeleteStaff() {
 export function useCreateTransaction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (tx: { office_id: string; staff_id?: string; type: string; network: string; amount: number; commission: number; customer_phone?: string }) => {
-      const { data, error } = await supabase.from("transactions").insert(tx).select().single();
+    mutationFn: async (tx: { office_id: string; staff_id?: string; type: TransactionType; network: NetworkType; amount: number; commission: number; customer_phone?: string }) => {
+      const { data, error } = await supabase.from("transactions").insert([tx]).select().single();
       if (error) throw error;
       return data;
     },
@@ -156,18 +162,18 @@ export function useRecordFloat() {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (entry: { office_id: string; network: string; type: string; amount: number }) => {
-      // Insert float entry
-      const { error: entryError } = await supabase.from("float_entries").insert({
-        ...entry,
+    mutationFn: async (entry: { office_id: string; network: NetworkType; type: string; amount: number }) => {
+      const { error: entryError } = await supabase.from("float_entries").insert([{
+        office_id: entry.office_id,
+        network: entry.network,
+        type: entry.type,
+        amount: entry.amount,
         recorded_by: user?.id,
-      });
+      }]);
       if (entryError) throw entryError;
 
-      // Upsert float balance
       const delta = entry.type === "deposit" ? entry.amount : -entry.amount;
-      
-      // Get current balance
+
       const { data: current } = await supabase
         .from("float_balances")
         .select("id, balance")
@@ -178,13 +184,13 @@ export function useRecordFloat() {
       if (current) {
         const { error } = await supabase
           .from("float_balances")
-          .update({ balance: Math.max(0, current.balance + delta) })
+          .update({ balance: Math.max(0, Number(current.balance) + delta) })
           .eq("id", current.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("float_balances")
-          .insert({ office_id: entry.office_id, network: entry.network as any, balance: Math.max(0, delta) });
+          .insert([{ office_id: entry.office_id, network: entry.network, balance: Math.max(0, delta) }]);
         if (error) throw error;
       }
     },
@@ -198,7 +204,7 @@ export function useRecordFloat() {
 export function useUpdateAlertStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({ id, status }: { id: string; status: AlertStatusType }) => {
       const { error } = await supabase.from("alerts").update({ status }).eq("id", id);
       if (error) throw error;
     },
@@ -206,7 +212,6 @@ export function useUpdateAlertStatus() {
   });
 }
 
-// Helper to format TZS
 export function formatTZS(amount: number): string {
   return new Intl.NumberFormat("en-TZ", { style: "currency", currency: "TZS", minimumFractionDigits: 0 }).format(amount);
 }

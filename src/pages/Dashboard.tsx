@@ -1,10 +1,12 @@
-import { useRole } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useOffices, useFloatBalances, useTransactions, useAlerts, formatTZS } from "@/hooks/use-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { transactions, offices, floatBalances, alerts, dailyTransactionSummary, formatTZS, getOfficeName } from "@/data/mockData";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Building2, Wallet, ArrowLeftRight, AlertTriangle, TrendingUp } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { format, parseISO, startOfDay } from "date-fns";
 
 function StatCard({ title, value, icon: Icon, gradient, subtitle }: {
   title: string; value: string; icon: React.ElementType; gradient: string; subtitle?: string;
@@ -28,50 +30,81 @@ function StatCard({ title, value, icon: Icon, gradient, subtitle }: {
 }
 
 export default function Dashboard() {
-  const { role, currentOfficeId } = useRole();
+  const { role, userOfficeId } = useAuth();
+  const { data: offices, isLoading: officesLoading } = useOffices();
+  const { data: floatBalances, isLoading: floatLoading } = useFloatBalances();
+  const { data: transactions, isLoading: txLoading } = useTransactions();
+  const { data: alerts } = useAlerts();
 
   const isAdmin = role === "admin";
-  const relevantOffices = isAdmin ? offices.filter(o => o.status === "active") : offices.filter(o => o.id === currentOfficeId);
-  const relevantOfficeIds = relevantOffices.map(o => o.id);
+  const loading = officesLoading || floatLoading || txLoading;
 
-  const totalFloat = floatBalances
-    .filter(f => relevantOfficeIds.includes(f.officeId))
-    .reduce((sum, f) => sum + f.balance, 0);
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-24" />)}
+        </div>
+      </div>
+    );
+  }
 
-  const todayTx = transactions.filter(t =>
-    t.date === "2026-03-07" && relevantOfficeIds.includes(t.officeId)
-  );
-  const todayVolume = todayTx.reduce((sum, t) => sum + t.amount, 0);
-  const todayCommission = todayTx.reduce((sum, t) => sum + t.commission, 0);
+  const activeOffices = offices?.filter(o => o.status === "active") ?? [];
+  const relevantOfficeIds = isAdmin
+    ? activeOffices.map(o => o.id)
+    : userOfficeId ? [userOfficeId] : [];
 
-  const newAlerts = alerts.filter(a =>
-    a.status === "new" && relevantOfficeIds.includes(a.officeId)
-  );
+  const relevantFloat = floatBalances?.filter(f => relevantOfficeIds.includes(f.office_id)) ?? [];
+  const totalFloat = relevantFloat.reduce((sum, f) => sum + Number(f.balance), 0);
+
+  const today = format(new Date(), "yyyy-MM-dd");
+  const todayTx = transactions?.filter(t =>
+    format(parseISO(t.created_at), "yyyy-MM-dd") === today && relevantOfficeIds.includes(t.office_id)
+  ) ?? [];
+  const todayVolume = todayTx.reduce((sum, t) => sum + Number(t.amount), 0);
+  const todayCommission = todayTx.reduce((sum, t) => sum + Number(t.commission), 0);
+
+  const newAlerts = alerts?.filter(a => a.status === "new" && relevantOfficeIds.includes(a.office_id)) ?? [];
+
+  // Build daily chart from last 7 days of transactions
+  const officeNameMap = new Map(offices?.map(o => [o.id, o.name]) ?? []);
+  const dailyData: Record<string, Record<string, number>> = {};
+  const last7 = transactions?.filter(t => relevantOfficeIds.includes(t.office_id)).slice(0, 200) ?? [];
+  last7.forEach(t => {
+    const day = format(parseISO(t.created_at), "MMM d");
+    if (!dailyData[day]) dailyData[day] = {};
+    const oName = officeNameMap.get(t.office_id) ?? "Other";
+    dailyData[day][oName] = (dailyData[day][oName] ?? 0) + 1;
+  });
+  const chartData = Object.entries(dailyData).map(([date, offices]) => ({ date, ...offices }));
+  const officeNames = [...new Set(last7.map(t => officeNameMap.get(t.office_id) ?? "Other"))];
+  const chartColors = ["hsl(var(--chart-blue))", "hsl(var(--chart-green))", "hsl(var(--chart-orange))", "hsl(var(--chart-purple))"];
+
+  const currentOfficeName = !isAdmin && userOfficeId ? officeNameMap.get(userOfficeId) : undefined;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          {isAdmin ? "Admin Dashboard" : `Office Dashboard — ${getOfficeName(currentOfficeId)}`}
+          {isAdmin ? "Admin Dashboard" : `Office Dashboard — ${currentOfficeName ?? "Unassigned"}`}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Overview for {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
         </p>
       </div>
 
-      {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total Float" value={formatTZS(totalFloat)} icon={Wallet} gradient="stat-card-green" subtitle={`${relevantOfficeIds.length} offices`} />
         <StatCard title="Today's Transactions" value={todayTx.length.toString()} icon={ArrowLeftRight} gradient="stat-card-blue" subtitle={formatTZS(todayVolume)} />
         <StatCard title="Today's Commission" value={formatTZS(todayCommission)} icon={TrendingUp} gradient="stat-card-purple" />
         {isAdmin ? (
-          <StatCard title="Active Offices" value={relevantOffices.length.toString()} icon={Building2} gradient="stat-card-orange" subtitle={`${offices.length} total`} />
+          <StatCard title="Active Offices" value={activeOffices.length.toString()} icon={Building2} gradient="stat-card-orange" subtitle={`${offices?.length ?? 0} total`} />
         ) : (
           <StatCard title="Active Alerts" value={newAlerts.length.toString()} icon={AlertTriangle} gradient="stat-card-orange" />
         )}
       </div>
 
-      {/* Chart + Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -80,22 +113,15 @@ export default function Dashboard() {
           <CardContent>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dailyTransactionSummary}>
+                <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
                   <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                      fontSize: 12,
-                    }}
-                  />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }} />
                   <Legend />
-                  <Bar dataKey="Kariakoo" fill="hsl(var(--chart-blue))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Mwanza" fill="hsl(var(--chart-green))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Arusha" fill="hsl(var(--chart-orange))" radius={[4, 4, 0, 0]} />
+                  {officeNames.map((name, i) => (
+                    <Bar key={name} dataKey={name} fill={chartColors[i % chartColors.length]} radius={[4, 4, 0, 0]} />
+                  ))}
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -113,13 +139,13 @@ export default function Dashboard() {
             {newAlerts.length === 0 ? (
               <p className="text-sm text-muted-foreground">No active alerts</p>
             ) : (
-              newAlerts.map(alert => (
+              newAlerts.slice(0, 5).map(alert => (
                 <div key={alert.id} className="rounded-lg border bg-accent/10 p-3">
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="h-4 w-4 mt-0.5 text-accent shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-foreground">{alert.message}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{alert.date}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{format(parseISO(alert.created_at), "MMM d, yyyy")}</p>
                     </div>
                   </div>
                 </div>
@@ -129,8 +155,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Float Breakdown */}
-      {isAdmin && (
+      {isAdmin && offices && floatBalances && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base font-semibold">Float by Office & Network</CardTitle>
@@ -147,8 +172,8 @@ export default function Dashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {offices.filter(o => o.status === "active").map(office => {
-                  const fb = (network: string) => floatBalances.find(f => f.officeId === office.id && f.network === network)?.balance ?? 0;
+                {activeOffices.map(office => {
+                  const fb = (network: string) => Number(floatBalances.find(f => f.office_id === office.id && f.network === network)?.balance ?? 0);
                   const total = fb("M-Pesa") + fb("Tigo Pesa") + fb("Airtel Money");
                   return (
                     <TableRow key={office.id}>

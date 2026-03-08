@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { alerts as initialAlerts, getOfficeName } from "@/data/mockData";
-import { Alert as AlertType } from "@/types";
+import { useAlerts, useOffices, useUpdateAlertStatus } from "@/hooks/use-data";
 import { AlertTriangle, Activity, ShieldAlert, CheckCircle2, Bell } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { format, parseISO } from "date-fns";
 
 const typeIcons: Record<string, React.ElementType> = {
   low_float: AlertTriangle,
@@ -19,14 +20,25 @@ const typeBg: Record<string, string> = {
 };
 
 export default function Alerts() {
-  const [alertList, setAlertList] = useState<AlertType[]>(initialAlerts);
+  const { data: alertList, isLoading } = useAlerts();
+  const { data: offices } = useOffices();
+  const updateAlert = useUpdateAlertStatus();
 
-  const handleAcknowledge = (id: string) => {
-    setAlertList(prev => prev.map(a => a.id === id ? { ...a, status: "acknowledged" } : a));
+  const getOfficeName = (id: string) => offices?.find(o => o.id === id)?.name ?? "Unknown";
+
+  const handleAcknowledge = async (id: string) => {
+    try {
+      await updateAlert.mutateAsync({ id, status: "acknowledged" });
+      toast({ title: "Alert acknowledged" });
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
+    }
   };
 
-  const newAlerts = alertList.filter(a => a.status === "new");
-  const ackAlerts = alertList.filter(a => a.status === "acknowledged");
+  if (isLoading) return <Skeleton className="h-96 w-full" />;
+
+  const newAlerts = alertList?.filter(a => a.status === "new") ?? [];
+  const ackAlerts = alertList?.filter(a => a.status === "acknowledged") ?? [];
 
   return (
     <div className="space-y-6">
@@ -41,7 +53,6 @@ export default function Alerts() {
         </Badge>
       </div>
 
-      {/* New Alerts */}
       {newAlerts.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Active Alerts</h2>
@@ -57,9 +68,9 @@ export default function Alerts() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground">{alert.message}</p>
                       <div className="flex items-center gap-3 mt-1.5">
-                        <span className="text-xs text-muted-foreground">{getOfficeName(alert.officeId)}</span>
+                        <span className="text-xs text-muted-foreground">{getOfficeName(alert.office_id)}</span>
                         {alert.network && <Badge variant="secondary" className="text-xs h-5">{alert.network}</Badge>}
-                        <span className="text-xs text-muted-foreground">{alert.date}</span>
+                        <span className="text-xs text-muted-foreground">{format(parseISO(alert.created_at), "MMM d, yyyy")}</span>
                       </div>
                     </div>
                     <Button size="sm" variant="outline" className="shrink-0 gap-1" onClick={() => handleAcknowledge(alert.id)}>
@@ -73,7 +84,6 @@ export default function Alerts() {
         </div>
       )}
 
-      {/* Acknowledged */}
       {ackAlerts.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Acknowledged</h2>
@@ -89,9 +99,9 @@ export default function Alerts() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-foreground">{alert.message}</p>
                       <div className="flex items-center gap-3 mt-1.5">
-                        <span className="text-xs text-muted-foreground">{getOfficeName(alert.officeId)}</span>
+                        <span className="text-xs text-muted-foreground">{getOfficeName(alert.office_id)}</span>
                         {alert.network && <Badge variant="secondary" className="text-xs h-5">{alert.network}</Badge>}
-                        <span className="text-xs text-muted-foreground">{alert.date}</span>
+                        <span className="text-xs text-muted-foreground">{format(parseISO(alert.created_at), "MMM d, yyyy")}</span>
                       </div>
                     </div>
                     <Badge variant="outline" className="shrink-0 text-xs">Resolved</Badge>
@@ -101,6 +111,14 @@ export default function Alerts() {
             );
           })}
         </div>
+      )}
+
+      {newAlerts.length === 0 && ackAlerts.length === 0 && (
+        <Card>
+          <CardContent className="p-8 text-center text-muted-foreground">
+            No alerts to display
+          </CardContent>
+        </Card>
       )}
     </div>
   );

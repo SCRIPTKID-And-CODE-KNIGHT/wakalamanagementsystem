@@ -6,12 +6,11 @@ import {
   ArrowLeftRight,
   FileBarChart,
   Bell,
-  Shield,
-  UserCog,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
-import { useRole } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAlerts } from "@/hooks/use-data";
 import {
   Sidebar,
   SidebarContent,
@@ -22,13 +21,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
-  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { alerts } from "@/data/mockData";
 
 const adminItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -51,10 +46,11 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
-  const { role, setRole } = useRole();
+  const { role } = useAuth();
+  const { data: alerts } = useAlerts();
 
   const items = role === "admin" ? adminItems : staffItems;
-  const newAlerts = alerts.filter(a => a.status === "new").length;
+  const newAlerts = alerts?.filter(a => a.status === "new").length ?? 0;
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -107,28 +103,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
-      <SidebarFooter className="p-4">
-        {!collapsed && (
-          <div className="rounded-lg bg-sidebar-accent p-3 space-y-2">
-            <div className="flex items-center gap-2 text-xs text-sidebar-foreground/60">
-              {role === "admin" ? <Shield className="h-3 w-3" /> : <UserCog className="h-3 w-3" />}
-              <span className="uppercase tracking-wider font-medium">Role</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="role-switch" className="text-xs text-sidebar-foreground cursor-pointer">
-                {role === "admin" ? "Admin" : "Staff"}
-              </Label>
-              <Switch
-                id="role-switch"
-                checked={role === "admin"}
-                onCheckedChange={(checked) => setRole(checked ? "admin" : "staff")}
-                className="scale-75"
-              />
-            </div>
-          </div>
-        )}
-      </SidebarFooter>
     </Sidebar>
   );
 }

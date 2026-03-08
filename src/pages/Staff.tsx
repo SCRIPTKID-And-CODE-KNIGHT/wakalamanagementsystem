@@ -22,7 +22,7 @@ export default function StaffPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", email: "", office_id: "", role: "Staff" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", office_id: "", role: "Staff" as "Manager" | "Staff" });
 
   const openAdd = () => {
     setEditingId(null);

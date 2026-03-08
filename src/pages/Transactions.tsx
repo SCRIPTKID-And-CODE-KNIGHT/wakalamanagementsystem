@@ -42,8 +42,8 @@ export default function Transactions() {
   const [form, setForm] = useState({
     office_id: defaultOfficeId,
     staff_id: "",
-    type: "Cash In",
-    network: "M-Pesa",
+    type: "Cash In" as "Cash In" | "Cash Out" | "Bill Payment" | "Airtime",
+    network: "M-Pesa" as "M-Pesa" | "Tigo Pesa" | "Airtel Money",
     amount: "",
     customer_phone: "",
   });

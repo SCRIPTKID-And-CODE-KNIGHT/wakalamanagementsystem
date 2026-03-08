@@ -21,7 +21,7 @@ export default function FloatManagement() {
 
   const isAdmin = role === "admin";
   const [officeId, setOfficeId] = useState("");
-  const [network, setNetwork] = useState("M-Pesa");
+  const [network, setNetwork] = useState<"M-Pesa" | "Tigo Pesa" | "Airtel Money">("M-Pesa");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<"deposit" | "withdrawal">("deposit");
 

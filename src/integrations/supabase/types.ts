@@ -14,16 +14,311 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      alerts: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          network: Database["public"]["Enums"]["network_type"] | null
+          office_id: string
+          status: Database["public"]["Enums"]["alert_status"]
+          type: Database["public"]["Enums"]["alert_type"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          network?: Database["public"]["Enums"]["network_type"] | null
+          office_id: string
+          status?: Database["public"]["Enums"]["alert_status"]
+          type: Database["public"]["Enums"]["alert_type"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          network?: Database["public"]["Enums"]["network_type"] | null
+          office_id?: string
+          status?: Database["public"]["Enums"]["alert_status"]
+          type?: Database["public"]["Enums"]["alert_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerts_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      float_balances: {
+        Row: {
+          balance: number
+          id: string
+          network: Database["public"]["Enums"]["network_type"]
+          office_id: string
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          id?: string
+          network: Database["public"]["Enums"]["network_type"]
+          office_id: string
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          id?: string
+          network?: Database["public"]["Enums"]["network_type"]
+          office_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "float_balances_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      float_entries: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          network: Database["public"]["Enums"]["network_type"]
+          office_id: string
+          recorded_by: string | null
+          type: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          network: Database["public"]["Enums"]["network_type"]
+          office_id: string
+          recorded_by?: string | null
+          type: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          network?: Database["public"]["Enums"]["network_type"]
+          office_id?: string
+          recorded_by?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "float_entries_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offices: {
+        Row: {
+          created_at: string
+          gps_lat: number | null
+          gps_lng: number | null
+          id: string
+          location: string
+          name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          location: string
+          name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          location?: string
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      staff: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          office_id: string
+          phone: string | null
+          role: Database["public"]["Enums"]["staff_role"]
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          office_id: string
+          phone?: string | null
+          role?: Database["public"]["Enums"]["staff_role"]
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          office_id?: string
+          phone?: string | null
+          role?: Database["public"]["Enums"]["staff_role"]
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount: number
+          commission: number
+          created_at: string
+          customer_phone: string | null
+          id: string
+          network: Database["public"]["Enums"]["network_type"]
+          office_id: string
+          staff_id: string | null
+          type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Insert: {
+          amount: number
+          commission?: number
+          created_at?: string
+          customer_phone?: string | null
+          id?: string
+          network: Database["public"]["Enums"]["network_type"]
+          office_id: string
+          staff_id?: string | null
+          type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Update: {
+          amount?: number
+          commission?: number
+          created_at?: string
+          customer_phone?: string | null
+          id?: string
+          network?: Database["public"]["Enums"]["network_type"]
+          office_id?: string
+          staff_id?: string | null
+          type?: Database["public"]["Enums"]["transaction_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_office_id: { Args: { _user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      alert_status: "new" | "acknowledged"
+      alert_type: "low_float" | "high_volume" | "abnormal_activity"
+      app_role: "admin" | "staff"
+      network_type: "M-Pesa" | "Tigo Pesa" | "Airtel Money"
+      staff_role: "Manager" | "Staff"
+      transaction_type: "Cash In" | "Cash Out" | "Bill Payment" | "Airtime"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +445,13 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      alert_status: ["new", "acknowledged"],
+      alert_type: ["low_float", "high_volume", "abnormal_activity"],
+      app_role: ["admin", "staff"],
+      network_type: ["M-Pesa", "Tigo Pesa", "Airtel Money"],
+      staff_role: ["Manager", "Staff"],
+      transaction_type: ["Cash In", "Cash Out", "Bill Payment", "Airtime"],
+    },
   },
 } as const

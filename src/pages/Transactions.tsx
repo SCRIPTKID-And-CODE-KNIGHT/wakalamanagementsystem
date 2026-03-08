@@ -206,7 +206,7 @@ export default function Transactions() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Type</Label>
-                <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
+                <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v as "Cash In" | "Cash Out" | "Bill Payment" | "Airtime" }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {txTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}

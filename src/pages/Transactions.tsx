@@ -215,7 +215,7 @@ export default function Transactions() {
               </div>
               <div className="space-y-2">
                 <Label>Network</Label>
-                <Select value={form.network} onValueChange={v => setForm(f => ({ ...f, network: v }))}>
+                <Select value={form.network} onValueChange={v => setForm(f => ({ ...f, network: v as "M-Pesa" | "Tigo Pesa" | "Airtel Money" }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {networksList.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}

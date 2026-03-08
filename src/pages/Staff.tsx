@@ -163,7 +163,7 @@ export default function StaffPage() {
               </div>
               <div className="space-y-2">
                 <Label>Role</Label>
-                <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v }))}>
+                <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v as "Manager" | "Staff" }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Manager">Manager</SelectItem>

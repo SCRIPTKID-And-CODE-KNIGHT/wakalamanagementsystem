@@ -80,7 +80,7 @@ export default function FloatManagement() {
             )}
             <div className="space-y-2">
               <Label>Network</Label>
-              <Select value={network} onValueChange={setNetwork}>
+              <Select value={network} onValueChange={v => setNetwork(v as "M-Pesa" | "Tigo Pesa" | "Airtel Money")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {networks.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}

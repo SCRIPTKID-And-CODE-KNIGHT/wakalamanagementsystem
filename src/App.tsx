@@ -13,6 +13,7 @@ import Transactions from "./pages/Transactions";
 import Reports from "./pages/Reports";
 import Alerts from "./pages/Alerts";
 import Auth from "./pages/Auth";
+import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -30,7 +31,7 @@ function ProtectedRoutes() {
   }
 
   if (!session) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/welcome" replace />;
   }
 
   return (
@@ -62,6 +63,19 @@ function AuthRoute() {
   return <Auth />;
 }
 
+function LandingRoute() {
+  const { session, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  if (session) return <Navigate to="/" replace />;
+  return <Landing />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -70,6 +84,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            <Route path="/welcome" element={<LandingRoute />} />
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>

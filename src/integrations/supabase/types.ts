@@ -316,7 +316,13 @@ export type Database = {
       alert_status: "new" | "acknowledged"
       alert_type: "low_float" | "high_volume" | "abnormal_activity"
       app_role: "admin" | "staff"
-      network_type: "M-Pesa" | "Tigo Pesa" | "Airtel Money"
+      network_type:
+        | "M-Pesa"
+        | "Tigo Pesa"
+        | "Airtel Money"
+        | "Halo Pesa"
+        | "NMB BANK"
+        | "CRDB BANK"
       staff_role: "Manager" | "Staff"
       transaction_type: "Cash In" | "Cash Out" | "Bill Payment" | "Airtime"
     }
@@ -449,7 +455,14 @@ export const Constants = {
       alert_status: ["new", "acknowledged"],
       alert_type: ["low_float", "high_volume", "abnormal_activity"],
       app_role: ["admin", "staff"],
-      network_type: ["M-Pesa", "Tigo Pesa", "Airtel Money"],
+      network_type: [
+        "M-Pesa",
+        "Tigo Pesa",
+        "Airtel Money",
+        "Halo Pesa",
+        "NMB BANK",
+        "CRDB BANK",
+      ],
       staff_role: ["Manager", "Staff"],
       transaction_type: ["Cash In", "Cash Out", "Bill Payment", "Airtime"],
     },

@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Building2, Wallet, ArrowLeftRight, AlertTriangle, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, parseISO, startOfDay } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { NETWORKS } from "@/lib/constants";
 
 function StatCard({ title, value, icon: Icon, gradient, subtitle }: {
   title: string; value: string; icon: React.ElementType; gradient: string; subtitle?: string;
@@ -67,7 +68,6 @@ export default function Dashboard() {
 
   const newAlerts = alerts?.filter(a => a.status === "new" && relevantOfficeIds.includes(a.office_id)) ?? [];
 
-  // Build daily chart from last 7 days of transactions
   const officeNameMap = new Map(offices?.map(o => [o.id, o.name]) ?? []);
   const dailyData: Record<string, Record<string, number>> = {};
   const last7 = transactions?.filter(t => relevantOfficeIds.includes(t.office_id)).slice(0, 200) ?? [];
@@ -165,22 +165,22 @@ export default function Dashboard() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Office</TableHead>
-                  <TableHead className="text-right">M-Pesa</TableHead>
-                  <TableHead className="text-right">Tigo Pesa</TableHead>
-                  <TableHead className="text-right">Airtel Money</TableHead>
+                  {NETWORKS.map(n => (
+                    <TableHead key={n} className="text-right">{n}</TableHead>
+                  ))}
                   <TableHead className="text-right">Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {activeOffices.map(office => {
                   const fb = (network: string) => Number(floatBalances.find(f => f.office_id === office.id && f.network === network)?.balance ?? 0);
-                  const total = fb("M-Pesa") + fb("Tigo Pesa") + fb("Airtel Money");
+                  const total = NETWORKS.reduce((s, n) => s + fb(n), 0);
                   return (
                     <TableRow key={office.id}>
                       <TableCell className="font-medium">{office.name}</TableCell>
-                      <TableCell className="text-right">{formatTZS(fb("M-Pesa"))}</TableCell>
-                      <TableCell className="text-right">{formatTZS(fb("Tigo Pesa"))}</TableCell>
-                      <TableCell className="text-right">{formatTZS(fb("Airtel Money"))}</TableCell>
+                      {NETWORKS.map(n => (
+                        <TableCell key={n} className="text-right">{formatTZS(fb(n))}</TableCell>
+                      ))}
                       <TableCell className="text-right font-semibold">{formatTZS(total)}</TableCell>
                     </TableRow>
                   );

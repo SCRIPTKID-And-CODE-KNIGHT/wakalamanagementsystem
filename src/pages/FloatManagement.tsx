@@ -10,8 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Wallet, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const networks = ["M-Pesa", "Tigo Pesa", "Airtel Money"];
+import { NETWORKS, type NetworkType } from "@/lib/constants";
 
 export default function FloatManagement() {
   const { role, userOfficeId } = useAuth();
@@ -21,11 +20,10 @@ export default function FloatManagement() {
 
   const isAdmin = role === "admin";
   const [officeId, setOfficeId] = useState("");
-  const [network, setNetwork] = useState<"M-Pesa" | "Tigo Pesa" | "Airtel Money">("M-Pesa");
+  const [network, setNetwork] = useState<NetworkType>("M-Pesa");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<"deposit" | "withdrawal">("deposit");
 
-  // Set default office when loaded
   const effectiveOfficeId = isAdmin ? (officeId || offices?.[0]?.id || "") : (userOfficeId || "");
 
   const visibleOfficeIds = isAdmin ? (offices?.map(o => o.id) ?? []) : (userOfficeId ? [userOfficeId] : []);
@@ -80,10 +78,10 @@ export default function FloatManagement() {
             )}
             <div className="space-y-2">
               <Label>Network</Label>
-              <Select value={network} onValueChange={v => setNetwork(v as "M-Pesa" | "Tigo Pesa" | "Airtel Money")}>
+              <Select value={network} onValueChange={v => setNetwork(v as NetworkType)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {networks.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                  {NETWORKS.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -122,22 +120,22 @@ export default function FloatManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Office</TableHead>
-                  <TableHead className="text-right">M-Pesa</TableHead>
-                  <TableHead className="text-right">Tigo Pesa</TableHead>
-                  <TableHead className="text-right">Airtel Money</TableHead>
+                  {NETWORKS.map(n => (
+                    <TableHead key={n} className="text-right">{n}</TableHead>
+                  ))}
                   <TableHead className="text-right">Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {offices?.filter(o => visibleOfficeIds.includes(o.id)).map(office => {
                   const fb = (n: string) => Number(balances?.find(b => b.office_id === office.id && b.network === n)?.balance ?? 0);
-                  const total = fb("M-Pesa") + fb("Tigo Pesa") + fb("Airtel Money");
+                  const total = NETWORKS.reduce((s, n) => s + fb(n), 0);
                   return (
                     <TableRow key={office.id}>
                       <TableCell className="font-medium">{office.name}</TableCell>
-                      <TableCell className="text-right">{formatTZS(fb("M-Pesa"))}</TableCell>
-                      <TableCell className="text-right">{formatTZS(fb("Tigo Pesa"))}</TableCell>
-                      <TableCell className="text-right">{formatTZS(fb("Airtel Money"))}</TableCell>
+                      {NETWORKS.map(n => (
+                        <TableCell key={n} className="text-right">{formatTZS(fb(n))}</TableCell>
+                      ))}
                       <TableCell className="text-right font-semibold">{formatTZS(total)}</TableCell>
                     </TableRow>
                   );

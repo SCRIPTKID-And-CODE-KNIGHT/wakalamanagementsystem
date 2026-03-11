@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
-type NetworkType = "M-Pesa" | "Tigo Pesa" | "Airtel Money";
+type NetworkType = "M-Pesa" | "Tigo Pesa" | "Airtel Money" | "Halo Pesa" | "NMB BANK" | "CRDB BANK";
 type TransactionType = "Cash In" | "Cash Out" | "Bill Payment" | "Airtime";
 type StaffRoleType = "Manager" | "Staff";
 type AlertStatusType = "new" | "acknowledged";

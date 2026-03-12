@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Shield, UserCog, LogOut } from "lucide-react";
+import { FloatingHelp } from "@/components/FloatingHelp";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -41,6 +42,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           </main>
         </div>
       </div>
+      <FloatingHelp />
     </SidebarProvider>
   );
 }

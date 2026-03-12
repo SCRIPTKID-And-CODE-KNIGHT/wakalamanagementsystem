@@ -62,8 +62,13 @@ export default function Transactions() {
 
   const handleRecord = async () => {
     const amt = parseFloat(form.amount);
+    const comm = parseFloat(form.commission);
     if (!amt || amt <= 0) {
       toast({ title: "Enter a valid amount", variant: "destructive" });
+      return;
+    }
+    if (isNaN(comm) || comm < 0) {
+      toast({ title: "Enter a valid commission", variant: "destructive" });
       return;
     }
     try {
@@ -73,7 +78,7 @@ export default function Transactions() {
         type: form.type,
         network: form.network,
         amount: amt,
-        commission: Math.round(amt * 0.005),
+        commission: comm,
         customer_phone: form.customer_phone || undefined,
       });
       toast({ title: "Transaction recorded" });

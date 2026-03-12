@@ -152,9 +152,35 @@ export function useCreateTransaction() {
     mutationFn: async (tx: { office_id: string; staff_id?: string; type: TransactionType; network: NetworkType; amount: number; commission: number; customer_phone?: string }) => {
       const { data, error } = await supabase.from("transactions").insert([tx]).select().single();
       if (error) throw error;
+
+      // Adjust float balance based on transaction type
+      const floatDelta = tx.type === "Cash Out" ? -tx.amount : tx.type === "Cash In" ? tx.amount : 0;
+      if (floatDelta !== 0) {
+        const { data: current } = await supabase
+          .from("float_balances")
+          .select("id, balance")
+          .eq("office_id", tx.office_id)
+          .eq("network", tx.network)
+          .single();
+
+        if (current) {
+          await supabase
+            .from("float_balances")
+            .update({ balance: Math.max(0, Number(current.balance) + floatDelta) })
+            .eq("id", current.id);
+        } else if (floatDelta > 0) {
+          await supabase
+            .from("float_balances")
+            .insert([{ office_id: tx.office_id, network: tx.network, balance: floatDelta }]);
+        }
+      }
+
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["transactions"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["float_balances"] });
+    },
   });
 }
 

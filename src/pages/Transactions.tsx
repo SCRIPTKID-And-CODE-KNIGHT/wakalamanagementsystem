@@ -83,7 +83,7 @@ export default function Transactions() {
       });
       toast({ title: "Transaction recorded" });
       setDialogOpen(false);
-      setForm(f => ({ ...f, amount: "", customer_phone: "" }));
+      setForm(f => ({ ...f, amount: "", commission: "", customer_phone: "" }));
     } catch (err: any) {
       toast({ title: err.message, variant: "destructive" });
     }

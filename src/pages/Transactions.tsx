@@ -235,9 +235,13 @@ export default function Transactions() {
                 <Input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="e.g. 500000" />
               </div>
               <div className="space-y-2">
-                <Label>Customer Phone</Label>
-                <Input value={form.customer_phone} onChange={e => setForm(f => ({ ...f, customer_phone: e.target.value }))} placeholder="+255..." />
+                <Label>Commission (TZS)</Label>
+                <Input type="number" value={form.commission} onChange={e => setForm(f => ({ ...f, commission: e.target.value }))} placeholder="e.g. 2500" />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Customer Phone</Label>
+              <Input value={form.customer_phone} onChange={e => setForm(f => ({ ...f, customer_phone: e.target.value }))} placeholder="+255..." />
             </div>
           </div>
           <DialogFooter>

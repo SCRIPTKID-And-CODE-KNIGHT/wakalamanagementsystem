@@ -45,6 +45,7 @@ export default function Transactions() {
     type: "Cash In" as "Cash In" | "Cash Out" | "Bill Payment" | "Airtime",
     network: "M-Pesa" as NetworkType,
     amount: "",
+    commission: "",
     customer_phone: "",
   });
 

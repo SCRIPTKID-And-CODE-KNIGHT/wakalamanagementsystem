@@ -2,15 +2,20 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Building2, Wallet, ArrowLeftRight, BarChart3, Shield, Users, ChevronRight } from "lucide-react";
+import slideMoney from "@/assets/slide-money.jpg";
+import slideBank from "@/assets/slide-bank.jpg";
+import slideMobile from "@/assets/slide-mobile.jpg";
 
 const features = [
   { icon: Building2, title: "Office Management", description: "Create and manage multiple Wakala offices across locations with GPS tracking.", color: "stat-card-blue" },
   { icon: Users, title: "Staff Management", description: "Assign staff to offices, track roles, and monitor individual performance.", color: "stat-card-green" },
   { icon: Wallet, title: "Float Tracking", description: "Real-time float balances per office and network — M-Pesa, Tigo Pesa, Airtel Money.", color: "stat-card-orange" },
-  { icon: ArrowLeftRight, title: "Transaction Records", description: "Record Cash In, Cash Out, Bill Payments, and Airtime with full audit trail.", color: "stat-card-purple" },
-  { icon: BarChart3, title: "Reports & Analytics", description: "Daily, weekly, and monthly reports with commission tracking per office.", color: "stat-card-blue" },
-  { icon: Shield, title: "Alerts & Security", description: "Low float warnings, abnormal activity detection, and role-based access control.", color: "stat-card-green" },
+  { icon: ArrowLeftRight, title: "Transaction Records", description: "Record Cash In, Cash Out, Bill Payments, and Airtime with full audit trail.", color: "stat-card-blue" },
+  { icon: BarChart3, title: "Reports & Analytics", description: "Daily, weekly, and monthly reports with commission tracking per office.", color: "stat-card-green" },
+  { icon: Shield, title: "Alerts & Security", description: "Low float warnings, abnormal activity detection, and role-based access control.", color: "stat-card-orange" },
 ];
+
+const slides = [slideMoney, slideBank, slideMobile];
 
 export default function Landing() {
   return (
@@ -19,7 +24,7 @@ export default function Landing() {
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-4 h-16">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-lg">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-secondary-foreground font-bold text-lg">
               W
             </div>
             <div>
@@ -31,32 +36,48 @@ export default function Landing() {
             <Button variant="ghost" asChild>
               <Link to="/auth">Sign In</Link>
             </Button>
-            <Button asChild>
+            <Button asChild className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
               <Link to="/auth">Get Started <ChevronRight className="h-4 w-4 ml-1" /></Link>
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 stat-card-blue opacity-[0.03]" />
-        <div className="max-w-6xl mx-auto px-4 py-20 md:py-32 text-center relative">
-          <div className="inline-flex items-center gap-2 rounded-full border bg-card px-4 py-1.5 text-sm text-muted-foreground mb-6">
-            <Wallet className="h-4 w-4 text-primary" />
+      {/* Hero with slideshow background */}
+      <section className="relative overflow-hidden min-h-[520px] flex items-center">
+        {/* Slideshow background images */}
+        {slides.map((src, i) => (
+          <div
+            key={i}
+            className={`absolute inset-0 slideshow-img-${i}`}
+            style={{ opacity: i === 0 ? 1 : 0 }}
+          >
+            <img
+              src={src}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          </div>
+        ))}
+        {/* Dark overlay for readability */}
+        <div className="absolute inset-0 bg-foreground/75" />
+
+        <div className="max-w-6xl mx-auto px-4 py-20 md:py-32 text-center relative z-10">
+          <div className="inline-flex items-center gap-2 rounded-full border border-secondary/40 bg-card/20 backdrop-blur-sm px-4 py-1.5 text-sm text-secondary mb-6">
+            <Wallet className="h-4 w-4" />
             Built for Mobile Money Agents in Tanzania
           </div>
-          <h1 className="text-4xl md:text-6xl font-extrabold text-foreground tracking-tight leading-tight max-w-3xl mx-auto">
-            Manage Your <span className="text-primary">Wakala</span> Business with Confidence
+          <h1 className="text-4xl md:text-6xl font-extrabold text-primary-foreground tracking-tight leading-tight max-w-3xl mx-auto">
+            Manage Your <span className="text-secondary">Wakala</span> Business with Confidence
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg md:text-xl text-primary-foreground/80 mt-6 max-w-2xl mx-auto leading-relaxed">
             Track float balances, record transactions, manage staff across offices, and get real-time alerts — all in one powerful system.
           </p>
           <div className="flex items-center justify-center gap-4 mt-10">
-            <Button size="lg" className="text-base px-8 h-12" asChild>
+            <Button size="lg" className="text-base px-8 h-12 bg-secondary text-secondary-foreground hover:bg-secondary/90" asChild>
               <Link to="/auth">Start Free <ChevronRight className="h-4 w-4 ml-1" /></Link>
             </Button>
-            <Button size="lg" variant="outline" className="text-base px-8 h-12" asChild>
+            <Button size="lg" variant="outline" className="text-base px-8 h-12 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10" asChild>
               <a href="#features">See Features</a>
             </Button>
           </div>
@@ -73,7 +94,7 @@ export default function Landing() {
             { label: "Real-Time Alerts", value: "✓" },
           ].map(stat => (
             <div key={stat.label}>
-              <p className="text-2xl md:text-3xl font-bold text-primary">{stat.value}</p>
+              <p className="text-2xl md:text-3xl font-bold text-secondary">{stat.value}</p>
               <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
             </div>
           ))}
@@ -93,7 +114,7 @@ export default function Landing() {
             <Card key={feature.title} className="group hover:shadow-lg transition-shadow border">
               <CardContent className="p-6">
                 <div className={`inline-flex items-center justify-center rounded-xl ${feature.color} p-3 mb-4`}>
-                  <feature.icon className="h-6 w-6 text-white" />
+                  <feature.icon className="h-6 w-6 text-primary-foreground" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground">{feature.title}</h3>
                 <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{feature.description}</p>
@@ -106,11 +127,11 @@ export default function Landing() {
       {/* CTA */}
       <section className="stat-card-blue">
         <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white">Ready to Streamline Your Operations?</h2>
-          <p className="text-white/80 mt-4 text-lg max-w-xl mx-auto">
+          <h2 className="text-3xl md:text-4xl font-bold text-primary-foreground">Ready to Streamline Your Operations?</h2>
+          <p className="text-primary-foreground/80 mt-4 text-lg max-w-xl mx-auto">
             Join Wakala agents across Tanzania who trust WBMS to manage their business.
           </p>
-          <Button size="lg" variant="secondary" className="mt-8 text-base px-8 h-12" asChild>
+          <Button size="lg" className="mt-8 text-base px-8 h-12 bg-secondary text-secondary-foreground hover:bg-secondary/90" asChild>
             <Link to="/auth">Create Your Account <ChevronRight className="h-4 w-4 ml-1" /></Link>
           </Button>
         </div>
@@ -120,7 +141,7 @@ export default function Landing() {
       <footer className="border-t bg-card">
         <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-secondary-foreground font-bold text-sm">
               W
             </div>
             <span className="text-sm font-semibold text-foreground">WBMS</span>
